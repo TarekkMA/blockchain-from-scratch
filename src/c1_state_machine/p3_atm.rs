@@ -52,13 +52,103 @@ pub struct Atm {
     keystroke_register: Vec<Key>,
 }
 
+impl Atm {
+    pub fn move_to_waiting(&self) -> Atm {
+        Atm {
+            cash_inside: self.cash_inside,
+            expected_pin_hash: Auth::Waiting,
+            keystroke_register: Vec::new(),
+        }
+    }
+
+    pub fn move_to_authenticating(&self, pin_hash: u64) -> Atm {
+        Atm {
+            cash_inside: self.cash_inside,
+            expected_pin_hash: Auth::Authenticating(pin_hash),
+            keystroke_register: Vec::new(),
+        }
+    }
+
+    pub fn move_to_authenticated(&self) -> Atm {
+        Atm {
+            cash_inside: self.cash_inside,
+            expected_pin_hash: Auth::Authenticated,
+            keystroke_register: Vec::new(),
+        }
+    }
+
+    pub fn add_key_to_register(&self, k: Key) -> Atm {
+        let mut keystroke_register = self.keystroke_register.clone();
+        keystroke_register.push(k);
+        Atm {
+            cash_inside: self.cash_inside,
+            expected_pin_hash: self.expected_pin_hash.clone(),
+            keystroke_register,
+        }
+    }
+
+    pub fn build_number(&self) -> u64 {
+        self.keystroke_register.iter().fold(0, |acc, k| {
+            let digit = match k {
+                Key::One => 1,
+                Key::Two => 2,
+                Key::Three => 3,
+                Key::Four => 4,
+                Key::Enter => panic!("Enter should not be in the keystroke register"),
+            };
+            acc * 10 + digit
+        })
+    }
+
+    pub fn try_withdraw_cash(&self) -> Atm {
+        let amount = self.build_number();
+        let new_amount = if amount > self.cash_inside {
+            self.cash_inside
+        } else {
+            amount
+        };
+        Atm {
+            cash_inside: new_amount,
+            expected_pin_hash: Auth::Waiting,
+            keystroke_register: Vec::new(),
+        }
+    }
+
+    pub fn try_enter_pin(&self, correct_pin: u64) -> Atm {
+        let pin = self.build_number();
+        if pin == correct_pin {
+            self.move_to_authenticated()
+        } else {
+            self.move_to_waiting()
+        }
+    }
+}
+
+
+
 impl StateMachine for Atm {
     // Notice that we are using the same type for the state as we are using for the machine this time.
     type State = Self;
     type Transition = Action;
 
-    fn next_state(starting_state: &Self::State, t: &Self::Transition) -> Self::State {
-        todo!("Exercise 4")
+    fn next_state(state: &Self::State, t: &Self::Transition) -> Self::State {
+        use Action::*;
+        match state.expected_pin_hash {
+            Auth::Waiting => match t {
+                SwipeCard(pin_hash) => state.move_to_authenticating(*pin_hash),
+                _ => state.clone(),
+            },
+            Auth::Authenticating(pin_hash) => match t {
+                Action::PressKey(Key::Enter) => state.try_enter_pin(pin_hash),
+                Action::PressKey(k) => state.add_key_to_register(k.clone()),
+                _ => state.clone(),
+            },
+            Auth::Authenticated => match t {
+                Action::PressKey(Key::Enter) => state.try_withdraw_cash(),
+                Action::PressKey(k) => state.add_key_to_register(k.clone()),
+                _ => state.clone(),
+            }
+        }
     }
 }
 
