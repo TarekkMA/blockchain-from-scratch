@@ -66,6 +66,9 @@ impl BalancesFns for Balances {
     }
 
     fn mint(&self, to: &User, amount: u64) -> Self {
+        if amount == 0 {
+            return self.clone();
+        }
         let mut new_state: HashMap<User, u64> = self.clone();
 
         let balance = self.get_balance(&to);
@@ -80,9 +83,14 @@ impl BalancesFns for Balances {
         let sender_balance = self.get_balance(sender);
         let receiver_balance = self.get_balance(receiver);
 
-        if sender_balance >= amount {
-            new_state.insert(sender.clone(), sender_balance.saturating_sub(amount));
+        if sender_balance >= amount && sender != receiver {
+            let new_sender_balance = sender_balance.saturating_sub(amount);
+            new_state.insert(sender.clone(), new_sender_balance);
             new_state.insert(receiver.clone(), receiver_balance.saturating_add(amount));
+
+            if new_sender_balance == 0 {
+                new_state.remove(sender);
+            }
         }
 
         new_state
