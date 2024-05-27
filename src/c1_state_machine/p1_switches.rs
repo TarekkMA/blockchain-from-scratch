@@ -2,6 +2,8 @@
 //! In these examples, we use actually switch boards as the state machine. The state is,
 //! well, just the state of the switches.
 
+use std::ops::Not;
+
 use super::StateMachine;
 
 /// This state machine models a single light switch.
@@ -15,7 +17,7 @@ impl StateMachine for LightSwitch {
     type Transition = ();
 
     fn next_state(starting_state: &bool, t: &()) -> bool {
-        todo!("Exercise 1")
+        starting_state.not()
     }
 }
 
@@ -42,7 +44,23 @@ impl StateMachine for WeirdSwitchMachine {
     type Transition = Toggle;
 
     fn next_state(starting_state: &TwoSwitches, t: &Toggle) -> TwoSwitches {
-        todo!("Exercise 2")
+        let TwoSwitches {
+            first_switch,
+            second_switch,
+        } = starting_state;
+
+        let (new_first_switch, new_second_switch) = match t {
+            Toggle::FirstSwitch => (
+                first_switch.not(),
+                if *first_switch { false } else { *second_switch },
+            ),
+            Toggle::SecondSwitch => (*first_switch, second_switch.not()),
+        };
+
+        TwoSwitches {
+            first_switch: new_first_switch,
+            second_switch: new_second_switch,
+        }
     }
 }
 
