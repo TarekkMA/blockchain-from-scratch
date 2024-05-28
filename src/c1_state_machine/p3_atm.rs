@@ -105,7 +105,7 @@ impl Atm {
         let new_amount = if amount > self.cash_inside {
             self.cash_inside
         } else {
-            amount
+            self.cash_inside - amount
         };
         Atm {
             cash_inside: new_amount,
@@ -115,8 +115,9 @@ impl Atm {
     }
 
     pub fn try_enter_pin(&self, correct_pin: u64) -> Atm {
-        let pin = self.build_number();
-        if pin == correct_pin {
+        let pin_hash = crate::hash(&self.keystroke_register);
+        println!("Pin hash: {}, correct pin: {}", pin_hash, correct_pin);
+        if pin_hash == correct_pin {
             self.move_to_authenticated()
         } else {
             self.move_to_waiting()
